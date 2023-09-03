@@ -16,6 +16,16 @@ import (
 	"strings"
 )
 
+type Tree struct {
+	Procs map[int]Process `json:"procs"`
+}
+
+type Process struct {
+	Name     string      `json:"name"`
+	Stat     ProcessStat `json:"stat"`
+	Children []int       `json:"children"`
+}
+
 // New returns the whole system process tree.
 func New() (*Tree, error) {
 	files, err := filepath.Glob("/proc/[0-9]*")
@@ -63,13 +73,6 @@ func New() (*Tree, error) {
 	return tree, err
 }
 
-const (
-	// statfmt is the stat format as described in proc.5.html
-	// note that the first 2 fields "pid" and "(comm)" are dealt with separately
-	// and are thus not specified in statfmt below.
-	statfmt = "%c %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d"
-)
-
 // ProcessStat contains process information.
 // see: http://man7.org/linux/man-pages/man5/proc.5.html
 type ProcessStat struct {
@@ -104,6 +107,13 @@ type ProcessStat struct {
 }
 
 func scan(dir string) (Process, error) {
+	const (
+		// statfmt is the stat format as described in proc.5.html
+		// note that the first 2 fields "pid" and "(comm)" are dealt with separately
+		// and are thus not specified in statfmt below.
+		statfmt = "%c %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d"
+	)
+
 	stat := filepath.Join(dir, "stat")
 	data, err := ioutil.ReadFile(stat)
 	if err != nil {
@@ -175,16 +185,4 @@ func scan(dir string) (Process, error) {
 
 	proc.Name = proc.Stat.Comm
 	return proc, nil
-}
-
-// Tree is a tree of processes.
-type Tree struct {
-	Procs map[int]Process `json:"procs"`
-}
-
-// Process stores information about a UNIX process.
-type Process struct {
-	Name     string      `json:"name"`
-	Stat     ProcessStat `json:"stat"`
-	Children []int       `json:"children"`
 }
