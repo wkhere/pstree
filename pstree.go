@@ -26,8 +26,12 @@ type Process struct {
 	Children []int       `json:"children"`
 }
 
+type Options struct {
+	ReadEnv bool
+}
+
 // New returns the whole system process tree.
-func New() (*Tree, error) {
+func New(opt Options) (*Tree, error) {
 	files, err := filepath.Glob("/proc/[0-9]*")
 	if err != nil {
 		return nil, fmt.Errorf("could not list pid files under /proc: %w", err)
@@ -35,7 +39,7 @@ func New() (*Tree, error) {
 
 	procs := make(map[int]Process, len(files))
 	for _, dir := range files {
-		proc, err := scan(dir)
+		proc, err := scan(dir, &opt)
 		if err != nil {
 			return nil, fmt.Errorf("could not scan %s: %w", dir, err)
 		}
@@ -98,12 +102,12 @@ type ProcessStat struct {
 	Vsize     uint64 `json:"vsize"`     // virtual memory size in bytes
 	RSS       int64  `json:"rss"`       // resident set size: number of pages the process has in real memory
 
-	Environ string `json:"environ"` // environment; k=v pairs separated by byte 0
-	Cwd     string `json:"cwd"`     // current working directory for the process
 	Cmdline string `json:"cmdline"` // complete command line; args separated by byte 0
+	Cwd     string `json:"cwd"`     // current working directory for the process
+	Env     string `json:"env"`     // environment; k=v pairs separated by byte 0
 }
 
-func scan(dir string) (Process, error) {
+func scan(dir string, opt *Options) (Process, error) {
 	const (
 		// statfmt is the stat format as described in proc.5.html
 		// note that the first 2 fields "pid" and "(comm)" are dealt with separately
@@ -155,14 +159,11 @@ func scan(dir string) (Process, error) {
 		return proc, fmt.Errorf("could not parse file %s: %w", stat, err)
 	}
 
-	env, err := os.ReadFile(filepath.Join(dir, "environ"))
-	switch {
-	case errors.Is(err, os.ErrPermission):
-		// ignore
-	case err != nil:
-		return proc, fmt.Errorf("could not read environ: %w", err)
+	cmd, err := os.ReadFile(filepath.Join(dir, "cmdline"))
+	if err != nil {
+		return proc, fmt.Errorf("could not read cmdline: %w", err)
 	}
-	proc.Stat.Environ = string(env)
+	proc.Stat.Cmdline = string(cmd)
 
 	cwd := filepath.Join(dir, "cwd")
 	pwd, err := os.Readlink(cwd)
@@ -174,11 +175,16 @@ func scan(dir string) (Process, error) {
 	}
 	proc.Stat.Cwd = pwd
 
-	cmd, err := os.ReadFile(filepath.Join(dir, "cmdline"))
-	if err != nil {
-		return proc, fmt.Errorf("could not read cmdline: %w", err)
+	if opt.ReadEnv {
+		env, err := os.ReadFile(filepath.Join(dir, "environ"))
+		switch {
+		case errors.Is(err, os.ErrPermission):
+			// ignore
+		case err != nil:
+			return proc, fmt.Errorf("could not read environ: %w", err)
+		}
+		proc.Stat.Env = string(env)
 	}
-	proc.Stat.Cmdline = string(cmd)
 
 	proc.Name = proc.Stat.Comm
 	return proc, nil

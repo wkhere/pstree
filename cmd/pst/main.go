@@ -22,7 +22,7 @@ func main() {
 
 	flag.Parse()
 
-	tree, err := pstree.New()
+	tree, err := pstree.New(pstree.Options{})
 	if err != nil {
 		log.Fatalf("could not create process tree: %+v", err)
 	}
