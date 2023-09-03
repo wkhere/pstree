@@ -6,7 +6,6 @@
 package pstree // import "github.com/sbinet/pstree"
 
 import (
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -99,9 +98,9 @@ type ProcessStat struct {
 	Vsize     uint64 `json:"vsize"`     // virtual memory size in bytes
 	RSS       int64  `json:"rss"`       // resident set size: number of pages the process has in real memory
 
-	Environ string `json:"environ"` // environment for the process
+	Environ string `json:"environ"` // environment; k=v pairs separated by byte 0
 	Cwd     string `json:"cwd"`     // current working directory for the process
-	Cmdline string `json:"cmdline"` // complete command line for the process
+	Cmdline string `json:"cmdline"` // complete command line; args separated by byte 0
 }
 
 func scan(dir string) (Process, error) {
@@ -149,38 +148,30 @@ func scan(dir string) (Process, error) {
 		return proc, fmt.Errorf("could not parse file %s: %w", stat, err)
 	}
 
-	environ := filepath.Join(dir, "environ")
-	env, err := os.ReadFile(environ)
+	env, err := os.ReadFile(filepath.Join(dir, "environ"))
 	switch {
-	case err == nil:
-		proc.Stat.Environ = base64.StdEncoding.EncodeToString(env)
-	default:
-		if err != nil {
-			if !errors.Is(err, os.ErrPermission) {
-				return proc, fmt.Errorf("could not parse file %s: %w", environ, err)
-			}
-		}
+	case errors.Is(err, os.ErrPermission):
+		// ignore
+	case err != nil:
+		return proc, fmt.Errorf("could not read environ: %w", err)
 	}
+	proc.Stat.Environ = string(env)
 
 	cwd := filepath.Join(dir, "cwd")
 	pwd, err := os.Readlink(cwd)
 	switch {
-	case err == nil:
-		proc.Stat.Cwd = pwd
-	default:
-		if err != nil {
-			if !errors.Is(err, os.ErrPermission) {
-				return proc, fmt.Errorf("could not stat %s: %w", cwd, err)
-			}
-		}
+	case errors.Is(err, os.ErrPermission):
+		// ignore
+	case err != nil:
+		return proc, fmt.Errorf("could not stat %s: %w", cwd, err)
 	}
+	proc.Stat.Cwd = pwd
 
-	cmdline := filepath.Join(dir, "cmdline")
-	args, err := os.ReadFile(cmdline)
+	cmd, err := os.ReadFile(filepath.Join(dir, "cmdline"))
 	if err != nil {
-		return proc, fmt.Errorf("could not read %s: %w", cmdline, err)
+		return proc, fmt.Errorf("could not read cmdline: %w", err)
 	}
-	proc.Stat.Cmdline = base64.StdEncoding.EncodeToString(args)
+	proc.Stat.Cmdline = string(cmd)
 
 	proc.Name = proc.Stat.Comm
 	return proc, nil
