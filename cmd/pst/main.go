@@ -15,7 +15,7 @@ import (
 )
 
 func main() {
-	log.SetPrefix("procs-tree: ")
+	log.SetPrefix("pst: ")
 	log.SetFlags(0)
 
 	pid := flag.Int("pid", 1, "PID of the process tree to display")
