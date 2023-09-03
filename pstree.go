@@ -17,13 +17,23 @@ import (
 )
 
 type Tree struct {
-	Procs map[int]Process `json:"procs"`
+	Procs map[int]*Process `json:"procs"`
 }
 
 type Process struct {
 	Name     string      `json:"name"`
 	Stat     ProcessStat `json:"stat"`
 	Children []int       `json:"children"`
+}
+
+func (proc *Process) EvalChildren(t *Tree, f func(*Process)) {
+	for _, childpid := range proc.Children {
+		child, ok := t.Procs[childpid]
+		if !ok {
+			continue
+		}
+		f(child)
+	}
 }
 
 type Options struct {
@@ -37,13 +47,14 @@ func New(opt Options) (*Tree, error) {
 		return nil, fmt.Errorf("could not list pid files under /proc: %w", err)
 	}
 
-	procs := make(map[int]Process, len(files))
+	procs := make(map[int]*Process, len(files))
+
 	for _, dir := range files {
 		proc, err := scan(dir, &opt)
 		if err != nil {
 			return nil, fmt.Errorf("could not scan %s: %w", dir, err)
 		}
-		if proc.Stat.PID == 0 {
+		if proc == nil {
 			// process vanished since Glob.
 			continue
 		}
@@ -107,7 +118,7 @@ type ProcessStat struct {
 	Env     string `json:"env"`     // environment; k=v pairs separated by byte 0
 }
 
-func scan(dir string, opt *Options) (Process, error) {
+func scan(dir string, opt *Options) (*Process, error) {
 	const (
 		// statfmt is the stat format as described in proc.5.html
 		// note that the first 2 fields "pid" and "(comm)" are dealt with separately
@@ -119,7 +130,7 @@ func scan(dir string, opt *Options) (Process, error) {
 	data, err := ioutil.ReadFile(stat)
 	if err != nil {
 		// process vanished since Glob.
-		return Process{}, nil
+		return nil, nil
 	}
 	// extracting the name of the process, enclosed in matching parentheses.
 	info := strings.FieldsFunc(string(data), func(r rune) bool {
@@ -127,17 +138,18 @@ func scan(dir string, opt *Options) (Process, error) {
 	})
 
 	if len(info) != 3 {
-		return Process{}, fmt.Errorf("%s: file format invalid", stat)
+		return nil, fmt.Errorf("%s: file format invalid", stat)
 	}
 
 	for i, v := range info {
 		info[i] = strings.TrimSpace(v)
 	}
 
-	var proc Process
+	proc := new(Process)
+
 	proc.Stat.PID, err = strconv.Atoi(info[0])
 	if err != nil {
-		return Process{}, fmt.Errorf("%s: invalid pid format %q: %w", stat, info[0], err)
+		return nil, fmt.Errorf("%s: invalid pid format %q: %w", stat, info[0], err)
 	}
 	proc.Stat.Comm = info[1]
 

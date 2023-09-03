@@ -6,36 +6,36 @@
 package main
 
 import (
-	"flag"
 	"fmt"
-	"log"
-	"strings"
+	"os"
 
-	"github.com/wkhere/pstree"
+	pst "github.com/wkhere/pstree"
 )
 
-func main() {
-	log.SetPrefix("pst: ")
-	log.SetFlags(0)
-
-	pid := flag.Int("pid", 1, "PID of the process tree to display")
-
-	flag.Parse()
-
-	tree, err := pstree.New(pstree.Options{})
-	if err != nil {
-		log.Fatalf("could not create process tree: %+v", err)
-	}
-
-	fmt.Printf("tree[%d]: %v\n", *pid, tree.Procs[*pid])
-	display(*pid, tree, 1)
+type config struct {
+	filters []filter
 }
 
-func display(pid int, tree *pstree.Tree, indent int) {
-	str := strings.Repeat("  ", indent)
-	for _, cid := range tree.Procs[pid].Children {
-		proc := tree.Procs[cid]
-		fmt.Printf("%s%#v\n", str, proc)
-		display(cid, tree, indent+1)
+var selfPID = os.Getpid()
+
+func main() {
+	conf, err := parseArgs(os.Args[1:])
+	if err != nil {
+		die(2, err)
 	}
+
+	tree, err := pst.New(pst.Options{})
+	if err != nil {
+		die(1, "could not read process tree:", err)
+	}
+
+	proc := bfs(conf.filters, tree, tree.Procs[1])
+	fmt.Printf("%+v\n", proc) //tmp
+}
+
+func die(exitcode int, a ...any) {
+	if len(a) > 0 {
+		fmt.Fprintln(os.Stderr, a...)
+	}
+	os.Exit(exitcode)
 }
