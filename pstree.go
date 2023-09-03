@@ -67,10 +67,7 @@ func New() (*Tree, error) {
 		procs[pid] = proc
 	}
 
-	tree := &Tree{
-		Procs: procs,
-	}
-	return tree, err
+	return &Tree{Procs: procs}, err
 }
 
 // ProcessStat contains process information.
