@@ -30,7 +30,7 @@ type Process struct {
 func New() (*Tree, error) {
 	files, err := filepath.Glob("/proc/[0-9]*")
 	if err != nil {
-		return nil, fmt.Errorf("pstree: could not list pid files under /proc: %w", err)
+		return nil, fmt.Errorf("could not list pid files under /proc: %w", err)
 	}
 
 	procs := make(map[int]Process, len(files))
@@ -52,7 +52,7 @@ func New() (*Tree, error) {
 		}
 		parent, ok := procs[proc.Stat.Ppid]
 		if !ok {
-			return nil, fmt.Errorf("pstree: parent pid=%d of pid=%d does not exist",
+			return nil, fmt.Errorf("parent pid=%d of pid=%d does not exist",
 				proc.Stat.Ppid, pid,
 			)
 		}
