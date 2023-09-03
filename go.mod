@@ -1,3 +1,3 @@
-module github.com/sbinet/pstree
+module github.com/wkhere/pstree
 
 go 1.13
