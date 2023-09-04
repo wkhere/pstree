@@ -29,8 +29,8 @@ func main() {
 		die(1, "could not read process tree:", err)
 	}
 
-	proc := bfs(conf.filters, tree, tree.Procs[1])
-	fmt.Printf("%+v\n", proc) //tmp
+	res := bfs(conf.filters, tree, tree.Procs[1])
+	res.print(os.Stdout)
 }
 
 func die(exitcode int, a ...any) {
