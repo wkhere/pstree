@@ -74,7 +74,7 @@ func New() (*Tree, error) {
 // see: http://man7.org/linux/man-pages/man5/proc.5.html
 type ProcessStat struct {
 	PID       int    `json:"pid"`       // process ID
-	Comm      string `json:"comm"`      // filename of the executable in parentheses
+	Comm      string `json:"comm"`      // command, like /proc/$Pid/comm but found in stat
 	State     byte   `json:"state"`     // process state
 	Ppid      int    `json:"ppid"`      // pid of the parent process
 	Pgrp      int    `json:"pgrp"`      // process group ID of the process
